@@ -37,41 +37,25 @@ const promptTemplate = new PromptTemplate({
     inputVariables: ["location"],
     partialVariables: { format_instructions: formatInstructions },
 });
-// ✅ Create a prompt function that takes the user input and passes it through the model
-const promptFunc = async (input) => {
-    try {
-        // Format the prompt with the user input
-        const formattedPrompt = await promptTemplate.format({ location: input });
-        // Call the model with the formatted prompt
-        const response = await model.invoke(formattedPrompt);
-        // Parse the response
-        return parser.parse(response);
-    }
-    catch (error) {
-        console.error("Error:", error);
-        throw new Error("Failed to process the request.");
-    }
-};
-// ✅ Endpoint to handle request
+// ✅ API route to handle weather forecast requests
 app.post('/forecast', async (req, res) => {
     try {
-        const location = req.body.location;
+        const { location } = req.body;
         if (!location) {
-            res.status(400).json({
-                error: 'Please provide a location in the request body.',
-            });
-            return;
+            return res.status(400).json({ error: "Location is required." });
         }
-        const result = await promptFunc(location);
-        res.json({ result });
+        // Create prompt input
+        const prompt = await promptTemplate.format({ location });
+        // Call OpenAI API
+        const response = await model.invoke(prompt);
+        return res.json({ forecast: response }); // ✅ Ensure the function always returns
     }
     catch (error) {
-        if (error instanceof Error) {
-            console.error('Error:', error.message);
-        }
-        res.status(500).json({ error: 'Internal Server Error' });
+        console.error("Error generating forecast:", error);
+        return res.status(500).json({ error: "Failed to generate forecast." }); // ✅ Explicit return
     }
 });
+// ✅ Start the server with logging
 app.listen(port, () => {
-    console.log(`Server is running on http://localhost:${port}`);
+    console.log(`✅ Server running on http://localhost:${port}`);
 });

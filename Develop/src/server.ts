@@ -47,43 +47,28 @@ const promptTemplate = new PromptTemplate({
   partialVariables: { format_instructions: formatInstructions },
 });
 
-// ✅ Create a prompt function that takes the user input and passes it through the model
-const promptFunc = async (input: string) => {
-  try {
-    // Format the prompt with the user input
-    const formattedPrompt = await promptTemplate.format({ location: input });
+// ✅ API route to handle weather forecast requests
+app.post('/forecast', async (req: Request, res: Response) => {
+    try {
+        const { location } = req.body;
+        if (!location) {
+            return res.status(400).json({ error: "Location is required." });
+        }
 
-    // Call the model with the formatted prompt
-    const response = await model.invoke(formattedPrompt);
+        // Create prompt input
+        const prompt = await promptTemplate.format({ location });
 
-    // Parse the response
-    return parser.parse(response);
-  } catch (error) {
-    console.error("Error:", error);
-    throw new Error("Failed to process the request.");
-  }
-};
-
-// ✅ Endpoint to handle request
-app.post('/forecast', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const location: string = req.body.location;
-    if (!location) {
-      res.status(400).json({
-        error: 'Please provide a location in the request body.',
-      });
-      return;
+        // Call OpenAI API
+        const response = await model.invoke(prompt);
+        
+        return res.json({ forecast: response }); // ✅ Ensure the function always returns
+    } catch (error) {
+        console.error("Error generating forecast:", error);
+        return res.status(500).json({ error: "Failed to generate forecast." }); // ✅ Explicit return
     }
-    const result: any = await promptFunc(location);
-    res.json({ result });
-  } catch (error: unknown) {
-    if (error instanceof Error) {
-      console.error('Error:', error.message);
-    }
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
 });
 
+// ✅ Start the server with logging
 app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
+    console.log(`✅ Server running on http://localhost:${port}`);
 });

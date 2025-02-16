@@ -15,6 +15,7 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "langchain": "^0.1.37",
+    "openai": "^4.85.1",
     "typescript": "^5.4.5"
   },
   "devDependencies": {
