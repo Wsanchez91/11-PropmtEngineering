@@ -20,55 +20,71 @@ if (!apiKey) {
 const app = express();
 app.use(express.json());
 
-// ✅ Initialize the OpenAI model
+// ✅ Initialize OpenAI Model
 const model = new OpenAI({
-  apiKey,
-  modelName: "gpt-4",
-  temperature: 0.7,
+    apiKey,
+    modelName: "gpt-4",
+    temperature: 0.7,
 });
 
-// ✅ Define the structured output schema using Zod
+// ✅ Define structured output schema using Zod
 const forecastSchema = z.object({
-  location: z.string(),
-  temperature: z.string(),
-  condition: z.string(),
+    location: z.string(),
+    temperature: z.string(),
+    condition: z.string(),
 });
 
-// ✅ Define the parser for the structured output
+// ✅ Define the parser for structured output
 const parser = StructuredOutputParser.fromZodSchema(forecastSchema);
 const formatInstructions = parser.getFormatInstructions();
 
 // ✅ Define the prompt template
 const promptTemplate = new PromptTemplate({
-  template: `Provide a weather forecast for the following location: {location}. 
-  Follow this output format: 
-  {format_instructions}`,
-  inputVariables: ["location"],
-  partialVariables: { format_instructions: formatInstructions },
+    template: `Provide a weather forecast for the following location: {location}. 
+    Follow this output format: 
+    {format_instructions}`,
+    inputVariables: ["location"],
+    partialVariables: { format_instructions: formatInstructions },
 });
 
-// ✅ API route to handle weather forecast requests
-app.post('/forecast', async (req: Request, res: Response) => {
+// ✅ Create a prompt function that takes the user input and passes it through the model
+const promptFunc = async (input: string) => {
     try {
-        const { location } = req.body;
-        if (!location) {
-            return res.status(400).json({ error: "Location is required." });
-        }
-
-        // Create prompt input
-        const prompt = await promptTemplate.format({ location });
-
-        // Call OpenAI API
+        // Format the prompt with user input
+        const prompt = await promptTemplate.format({ location: input });
+        
+        // Call the model with the formatted prompt
         const response = await model.invoke(prompt);
         
-        return res.json({ forecast: response }); // ✅ Ensure the function always returns
+        // Return the JSON response
+        return response;
     } catch (error) {
         console.error("Error generating forecast:", error);
-        return res.status(500).json({ error: "Failed to generate forecast." }); // ✅ Explicit return
+        throw new Error("Failed to generate forecast.");
     }
+};
+
+// ✅ Endpoint to handle forecast request
+app.post('/forecast', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const location: string = req.body.location;
+    if (!location) {
+      res.status(400).json({
+        error: 'Please provide a location in the request body.',
+      });
+      return;
+    }
+    const result: any = await promptFunc(location);
+    res.json({ result });
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error('Error:', error.message);
+    }
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
 });
 
 // ✅ Start the server with logging
 app.listen(port, () => {
-    console.log(`✅ Server running on http://localhost:${port}`);
+  console.log(`✅ Server is running on http://localhost:${port}`);
 });
